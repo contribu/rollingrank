@@ -45,14 +45,13 @@ import rollingrank
 x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
 y = rollingrank.rollingrank(x, window=3)
 print(y)
-# [nan nan  2.  1.  0.  1.  1.]
+# [nan nan  2.  1.  0.  1.  2.]
 
 y = rollingrank.rollingrank(x, window=3, pct=True)
 print(y)
-# [nan nan 1.  0.5 0.  0.5 0.5]
+# [nan nan 1.  0.5 0.  0.5 1. ]
 ```
 
-## Caveat
+## TODO
 
-- Handling of values of the same rank is not considered much.
-- No test
+- support axis
