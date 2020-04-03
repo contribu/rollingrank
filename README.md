@@ -52,6 +52,10 @@ print(y)
 # [nan nan 1.  0.5 0.  0.5 1. ]
 ```
 
+## Kaggle Example
+
+https://www.kaggle.com/bakuage/rollingrank-example
+
 ## TODO
 
 - support axis
