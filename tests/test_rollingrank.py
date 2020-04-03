@@ -54,9 +54,9 @@ class TestRollingrank(TestCase):
         np.testing.assert_array_equal(y, [np.nan, np.nan, 1, 2.0 / 3, 1.0 / 3, 2.0 / 3, 1])
 
     def test_nan(self):
-        x = np.array([1, np.nan, 2])
+        x = np.array([1, np.nan, 2, np.nan, 3])
         y = rollingrank.rollingrank(x, window=3)
-        np.testing.assert_array_equal(y, [np.nan, np.nan, 2])
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 2, np.nan, 2])
 
     def test_nan_window1(self):
         x = np.array([1, np.nan, 2])
