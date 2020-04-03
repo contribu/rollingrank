@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
@@ -35,27 +36,26 @@ RankMethod str_to_rank_method(const char *method) {
 }
 
 // the definition of method and pct are same as https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.rank.html
+// na_option is 'keep'
 
 template <class T>
 py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, bool pct) {
     const auto n = x.size();
     py::array_t<double> y(n);
 
-    const auto compare = [&x](int a, int b) {
-        return *x.data(a) < *x.data(b);
-    };
-    std::multiset<int, decltype(compare)> sorted_indices(compare);
+    std::multiset<T> sorted_indices;
 
     const auto rank_method = str_to_rank_method(method);
 
-
     for (int i = 0; i < n; i++) {
+        const auto value = *x.data(i);
+
         if (i < w - 1) {
-            sorted_indices.insert(i);
+            if (!std::isnan(value)) {
+                sorted_indices.insert(value);
+            }
             *y.mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         } else {
-            const auto iter = sorted_indices.insert(i);
-
             // debug
 //            std::cout << "loop " << i << std::endl;
 //            for (auto it = sorted_indices.begin(); it != sorted_indices.end(); ++it) {
@@ -65,35 +65,46 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
 
             double rank;
 
-            switch (rank_method) {
-                case RankMethod::Average:
-                    {
-                        const auto range = sorted_indices.equal_range(i);
-                        rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1);
-                    }
-                    break;
-                case RankMethod::Min:
-                    rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(i));
-                    break;
-                case RankMethod::Max:
-                    rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(i)) - 1;
-                    break;
-                case RankMethod::First:
-                    rank = std::distance(sorted_indices.begin(), iter);
-                    break;
-                default:
-                    rank = std::numeric_limits<double>::quiet_NaN();
-                    break;
+            if (std::isnan(value)) {
+                rank = std::numeric_limits<double>::quiet_NaN();
             }
+            else {
+                const auto iter = sorted_indices.insert(value);
 
-            if (pct) {
-                // It uses division rather than reciprocal multiplication to ensure accuracy.
-                // It may be slow, but the latency may hide in the latency of multiset processing.
-                rank /= w - 1;
+                switch (rank_method) {
+                    case RankMethod::Average:
+                        {
+                            const auto range = sorted_indices.equal_range(value);
+                            rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1) + 1;
+                        }
+                        break;
+                    case RankMethod::Min:
+                        rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(value)) + 1;
+                        break;
+                    case RankMethod::Max:
+                        rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(value));
+                        break;
+                    case RankMethod::First:
+                        rank = std::distance(sorted_indices.begin(), iter) + 1;
+                        break;
+                    default:
+                        rank = std::numeric_limits<double>::quiet_NaN();
+                        break;
+                }
+
+                if (pct) {
+                    // It uses division rather than reciprocal multiplication to ensure accuracy.
+                    // It may be slow, but the latency may hide in the latency of multiset processing.
+                    rank /= sorted_indices.size();
+                }
             }
 
             *y.mutable_data(i) = rank;
-            sorted_indices.erase(sorted_indices.find(i - w + 1));
+
+            const auto old_value = *x.data(i - w + 1);
+            if (!std::isnan(old_value)) {
+                sorted_indices.erase(sorted_indices.find(old_value));
+            }
         }
     }
 

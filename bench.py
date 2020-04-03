@@ -5,6 +5,8 @@ import rollingrank
 from pythonbenchmark import measure
 
 x = np.random.rand(1024 * 1024)
+x_nan = x.copy()
+x_nan[np.arange(0, x.size, 2)] = np.nan
 x_small = np.random.rand(16 * 1024)
 window = 1024
 window_small = 16
@@ -16,6 +18,10 @@ def bench():
 @measure
 def bench_float():
     rollingrank.rollingrank(x.astype('float32'), window=window)
+
+@measure
+def bench_nan():
+    rollingrank.rollingrank(x_nan, window=window)
 
 @measure
 def bench_pct():
@@ -44,6 +50,7 @@ def bench_pandas2():
 
 bench()
 bench_float()
+bench_nan()
 bench_pct()
 bench_pandas()
 bench_pandas2()
