@@ -48,6 +48,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
 
     const auto rank_method = str_to_rank_method(method);
 
+
     for (int i = 0; i < n; i++) {
         if (i < w - 1) {
             sorted_indices.insert(i);
@@ -67,9 +68,8 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
             switch (rank_method) {
                 case RankMethod::Average:
                     {
-                        const auto lower = sorted_indices.lower_bound(i);
-                        const auto upper = sorted_indices.upper_bound(i);
-                        rank = std::distance(sorted_indices.begin(), lower) + 0.5 * (std::distance(lower, upper) - 1);
+                        const auto range = sorted_indices.equal_range(i);
+                        rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1);
                     }
                     break;
                 case RankMethod::Min:

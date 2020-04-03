@@ -56,6 +56,14 @@ print(y)
 
 https://www.kaggle.com/bakuage/rollingrank-example
 
+## Development
+
+test
+
+```bash
+python -m unittest discover tests
+```
+
 ## TODO
 
 - support axis
