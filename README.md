@@ -42,7 +42,7 @@ pip install rollingrank
 import numpy as np
 import rollingrank
 
-x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
+x = np.array([0.1, 0.2, 0.3, 0.25, 0.1, 0.2, 0.3])
 y = rollingrank.rollingrank(x, window=3)
 print(y)
 # [nan nan  2.  1.  0.  1.  2.]
