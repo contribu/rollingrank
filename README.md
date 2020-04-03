@@ -24,7 +24,7 @@ The simple implementation using pandas and numpy is too slow.
 
 |Implementation|Complexity|
 |:-:|:-:|
-|rollingrank|O(n * log(w))|
+|rollingrank|O(n * log(w)) (not implemented)|
 |pandas rolling + numpy|O(n * w)|
 
 n: input length
@@ -67,3 +67,4 @@ python -m unittest discover tests
 ## TODO
 
 - support axis
+- O(n * log(w)) algorithm
