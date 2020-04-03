@@ -63,6 +63,11 @@ class TestRollingrank(TestCase):
         y = rollingrank.rollingrank(x, window=1)
         np.testing.assert_array_equal(y, [1, np.nan, 1])
 
+    def test_nan_pct(self):
+        x = np.array([1, np.nan, 2, np.nan, 3])
+        y = rollingrank.rollingrank(x, window=3, pct=True)
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 1, np.nan, 1])
+
     def test_complex_case(self):
         x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
         y = rollingrank.rollingrank(x, window=3)
