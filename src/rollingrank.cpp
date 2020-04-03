@@ -41,21 +41,17 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
     const auto n = x.size();
     py::array_t<double> y(n);
 
-    const auto compare = [&x](int a, int b) {
-        return *x.data(a) < *x.data(b);
-    };
-    std::multiset<int, decltype(compare)> sorted_indices(compare);
+    std::multiset<T> sorted_indices;
 
     const auto rank_method = str_to_rank_method(method);
 
-
     for (int i = 0; i < n; i++) {
+        const auto value = *x.data(i);
+        const auto iter = sorted_indices.insert(value);
+
         if (i < w - 1) {
-            sorted_indices.insert(i);
             *y.mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         } else {
-            const auto iter = sorted_indices.insert(i);
-
             // debug
 //            std::cout << "loop " << i << std::endl;
 //            for (auto it = sorted_indices.begin(); it != sorted_indices.end(); ++it) {
@@ -68,15 +64,15 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
             switch (rank_method) {
                 case RankMethod::Average:
                     {
-                        const auto range = sorted_indices.equal_range(i);
+                        const auto range = sorted_indices.equal_range(value);
                         rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1);
                     }
                     break;
                 case RankMethod::Min:
-                    rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(i));
+                    rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(value));
                     break;
                 case RankMethod::Max:
-                    rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(i)) - 1;
+                    rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(value)) - 1;
                     break;
                 case RankMethod::First:
                     rank = std::distance(sorted_indices.begin(), iter);
@@ -93,7 +89,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
             }
 
             *y.mutable_data(i) = rank;
-            sorted_indices.erase(sorted_indices.find(i - w + 1));
+            sorted_indices.erase(sorted_indices.find(*x.data(i - w + 1)));
         }
     }
 
