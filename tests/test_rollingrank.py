@@ -1,5 +1,6 @@
 from unittest import TestCase
 import numpy as np
+import pandas as pd
 import rollingrank
 
 class TestRollingrank(TestCase):
@@ -87,5 +88,19 @@ class TestRollingrank(TestCase):
         x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
         y = rollingrank.rollingrank(x, window=3)
         np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 1.5, 1, 2.5, 3])
+
+    def test_pandas_compatibility(self):
+        def rollingrank_pandas(x, window=None, method=None):
+            def to_rank(x):
+                return x.rank(method=method).iloc[-1]
+            return pd.Series(x).rolling(window).apply(to_rank).values
+
+        np.random.seed(1)
+        x = np.random.randint(0, 10, (16 * 1024))
+        x = np.random.rand(16 * 1024)
+        window = 16
+        y = rollingrank.rollingrank(x, window=window, method='first')
+        y_pandas = rollingrank_pandas(x, window=window, method='first')
+        np.testing.assert_array_equal(y, y_pandas)
 
 
