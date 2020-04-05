@@ -8,6 +8,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
+#include "avl_array.h"
+
 //#include <iostream>
 
 namespace {
@@ -55,21 +57,22 @@ PctMode str_to_pct_mode(const char *str) {
 // na_option is 'keep'
 
 template <class T>
-py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, bool pct, const char *_pct_mode) {
-    const auto n = x.size();
+py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, bool pct, const char *_pct_mode) {
+    const size_t n = x.size();
     py::array_t<double> y(n);
 
-    std::multiset<T> sorted_indices;
+    typedef std::pair<double, size_t> Pair;
+    avl_array<Pair, bool, size_t, 2048, true> avl;
 
     const auto rank_method = str_to_rank_method(method);
     const auto pct_mode = str_to_pct_mode(_pct_mode);
 
-    for (int i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
         const auto value = *x.data(i);
 
         if (i < w - 1) {
             if (!std::isnan(value)) {
-                sorted_indices.insert(value);
+                avl.insert(Pair(value, i), true);
             }
             *y.mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         } else {
@@ -86,23 +89,24 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
                 rank = std::numeric_limits<double>::quiet_NaN();
             }
             else {
-                const auto iter = sorted_indices.insert(value);
+                avl.insert(Pair(value, i), true);
 
                 switch (rank_method) {
                     case RankMethod::Average:
                         {
-                            const auto range = sorted_indices.equal_range(value);
-                            rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1) + 1;
+                            const auto min_rank = avl.lower_bound_rank(Pair(value, 0)) + 1;
+                            const auto max_rank = avl.lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
+                            rank = 0.5 * (min_rank + max_rank);
                         }
                         break;
                     case RankMethod::Min:
-                        rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(value)) + 1;
+                        rank = avl.lower_bound_rank(Pair(value, 0)) + 1;
                         break;
                     case RankMethod::Max:
-                        rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(value));
+                        rank = avl.lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
                         break;
                     case RankMethod::First:
-                        rank = std::distance(sorted_indices.begin(), iter) + 1;
+                        rank = avl.lower_bound_rank(Pair(value, i)) + 1;
                         break;
                     default:
                         rank = std::numeric_limits<double>::quiet_NaN();
@@ -112,13 +116,13 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
                 if (pct) {
                     switch (pct_mode) {
                         case PctMode::Pandas:
-                            rank /= sorted_indices.size();
+                            rank /= avl.size();
                             break;
                         case PctMode::Closed:
-                            if (sorted_indices.size() == 1) {
+                            if (avl.size() == 1) {
                                 rank = 0.5;
                             } else {
-                                rank = (rank - 1) / (sorted_indices.size() - 1);
+                                rank = (rank - 1) / (avl.size() - 1);
                             }
                     }
                 }
@@ -128,7 +132,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
 
             const auto old_value = *x.data(i - w + 1);
             if (!std::isnan(old_value)) {
-                sorted_indices.erase(sorted_indices.find(old_value));
+                avl.erase(Pair(old_value, i - w + 1));
             }
         }
     }
