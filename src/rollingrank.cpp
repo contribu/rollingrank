@@ -3,7 +3,8 @@
 #include <cstring>
 #include <algorithm>
 #include <limits>
-#include <set>
+#include <memory>
+#include <stdexcept>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -56,13 +57,14 @@ PctMode str_to_pct_mode(const char *str) {
 // the definition of method and pct are same as https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.rank.html
 // na_option is 'keep'
 
-template <class T>
-py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, bool pct, const char *_pct_mode) {
+template <class T, size_t MaxWindow>
+py::array_t<double> do_rollingrank(py::array_t<T> x, size_t w, const char *method, bool pct, const char *_pct_mode) {
     const size_t n = x.size();
     py::array_t<double> y(n);
 
     typedef std::pair<double, size_t> Pair;
-    avl_array<Pair, bool, size_t, 2048, true> avl;
+    typedef avl_array<Pair, bool, size_t, MaxWindow, true> AvlArray;
+    std::unique_ptr<AvlArray> avl(new AvlArray());
 
     const auto rank_method = str_to_rank_method(method);
     const auto pct_mode = str_to_pct_mode(_pct_mode);
@@ -72,7 +74,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, 
 
         if (i < w - 1) {
             if (!std::isnan(value)) {
-                avl.insert(Pair(value, i), true);
+                avl->insert(Pair(value, i), true);
             }
             *y.mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         } else {
@@ -89,24 +91,24 @@ py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, 
                 rank = std::numeric_limits<double>::quiet_NaN();
             }
             else {
-                avl.insert(Pair(value, i), true);
+                avl->insert(Pair(value, i), true);
 
                 switch (rank_method) {
                     case RankMethod::Average:
                         {
-                            const auto min_rank = avl.lower_bound_rank(Pair(value, 0)) + 1;
-                            const auto max_rank = avl.lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
+                            const auto min_rank = avl->lower_bound_rank(Pair(value, 0)) + 1;
+                            const auto max_rank = avl->lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
                             rank = 0.5 * (min_rank + max_rank);
                         }
                         break;
                     case RankMethod::Min:
-                        rank = avl.lower_bound_rank(Pair(value, 0)) + 1;
+                        rank = avl->lower_bound_rank(Pair(value, 0)) + 1;
                         break;
                     case RankMethod::Max:
-                        rank = avl.lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
+                        rank = avl->lower_bound_rank(Pair(value, std::numeric_limits<size_t>::max())) - 1 + 1;
                         break;
                     case RankMethod::First:
-                        rank = avl.lower_bound_rank(Pair(value, i)) + 1;
+                        rank = avl->lower_bound_rank(Pair(value, i)) + 1;
                         break;
                     default:
                         rank = std::numeric_limits<double>::quiet_NaN();
@@ -116,13 +118,13 @@ py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, 
                 if (pct) {
                     switch (pct_mode) {
                         case PctMode::Pandas:
-                            rank /= avl.size();
+                            rank /= avl->size();
                             break;
                         case PctMode::Closed:
-                            if (avl.size() == 1) {
+                            if (avl->size() == 1) {
                                 rank = 0.5;
                             } else {
-                                rank = (rank - 1) / (avl.size() - 1);
+                                rank = (rank - 1) / (avl->size() - 1);
                             }
                     }
                 }
@@ -132,12 +134,35 @@ py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, 
 
             const auto old_value = *x.data(i - w + 1);
             if (!std::isnan(old_value)) {
-                avl.erase(Pair(old_value, i - w + 1));
+                avl->erase(Pair(old_value, i - w + 1));
             }
         }
     }
 
     return y;
+}
+
+#define branch_do_rollingrank(max_window) \
+    else if (w <= max_window) { \
+        return do_rollingrank<T, (max_window)>(x, w, method, pct, _pct_mode); \
+    }
+
+template <class T>
+py::array_t<double> rollingrank(py::array_t<T> x, size_t w, const char *method, bool pct, const char *_pct_mode) {
+    if (w < 1) {
+        throw std::invalid_argument("w should be >= 0.");
+    }
+    branch_do_rollingrank(1 << 8)
+    branch_do_rollingrank(1 << 16)
+    branch_do_rollingrank(1 << 20)
+    branch_do_rollingrank(1 << 24)
+    branch_do_rollingrank(1 << 26)
+    branch_do_rollingrank(1 << 28)
+    branch_do_rollingrank(1 << 29)
+    branch_do_rollingrank(1 << 30)
+    else {
+        throw std::invalid_argument("w should be <= 2^30.");
+    }
 }
 }
 
