@@ -53,6 +53,21 @@ class TestRollingrank(TestCase):
         y = rollingrank.rollingrank(x, window=3, pct=True)
         np.testing.assert_array_equal(y, [np.nan, np.nan, 1, 2.0 / 3, 1.0 / 3, 2.0 / 3, 1])
 
+    def test_rollingrank_pct_pandas(self):
+        x = np.array([0.1, 0.2, 0.3, 0.25, 0.1, 0.2, 0.3])
+        y = rollingrank.rollingrank(x, window=3, pct=True, pct_mode='pandas')
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 1, 2.0 / 3, 1.0 / 3, 2.0 / 3, 1])
+
+    def test_rollingrank_pct_closed(self):
+        x = np.array([0.1, 0.2, 0.3, 0.25, 0.1, 0.2, 0.3])
+        y = rollingrank.rollingrank(x, window=3, pct=True, pct_mode='closed')
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 1, 0.5, 0, 0.5, 1])
+
+    def test_rollingrank_pct_closed_window1(self):
+        x = np.array([0.1, 0.2, 0.3, 0.25, 0.1, 0.2, 0.3])
+        y = rollingrank.rollingrank(x, window=1, pct=True, pct_mode='closed')
+        np.testing.assert_array_equal(y, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+
     def test_nan(self):
         x = np.array([1, np.nan, 2, np.nan, 3])
         y = rollingrank.rollingrank(x, window=3)

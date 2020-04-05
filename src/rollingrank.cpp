@@ -17,6 +17,10 @@ enum class RankMethod {
     Average, Min, Max, First
 };
 
+enum class PctMode {
+    Pandas, Closed
+};
+
 RankMethod str_to_rank_method(const char *method) {
     if (std::strcmp(method, "average") == 0) {
         return RankMethod::Average;
@@ -35,17 +39,30 @@ RankMethod str_to_rank_method(const char *method) {
     }
 }
 
+PctMode str_to_pct_mode(const char *str) {
+    if (std::strcmp(str, "pandas") == 0) {
+        return PctMode::Pandas;
+    }
+    else if (std::strcmp(str, "closed") == 0) {
+        return PctMode::Closed;
+    }
+    else {
+        return PctMode::Pandas;
+    }
+}
+
 // the definition of method and pct are same as https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.rank.html
 // na_option is 'keep'
 
 template <class T>
-py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, bool pct) {
+py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, bool pct, const char *_pct_mode) {
     const auto n = x.size();
     py::array_t<double> y(n);
 
     std::multiset<T> sorted_indices;
 
     const auto rank_method = str_to_rank_method(method);
+    const auto pct_mode = str_to_pct_mode(_pct_mode);
 
     for (int i = 0; i < n; i++) {
         const auto value = *x.data(i);
@@ -93,9 +110,17 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
                 }
 
                 if (pct) {
-                    // It uses division rather than reciprocal multiplication to ensure accuracy.
-                    // It may be slow, but the latency may hide in the latency of multiset processing.
-                    rank /= sorted_indices.size();
+                    switch (pct_mode) {
+                        case PctMode::Pandas:
+                            rank /= sorted_indices.size();
+                            break;
+                        case PctMode::Closed:
+                            if (sorted_indices.size() == 1) {
+                                rank = 0.5;
+                            } else {
+                                rank = (rank - 1) / (sorted_indices.size() - 1);
+                            }
+                    }
                 }
             }
 
@@ -117,7 +142,8 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
         py::arg("x"), \
         py::arg("window"), \
         py::arg("method") = "average", \
-        py::arg("pct") = false \
+        py::arg("pct") = false, \
+        py::arg("pct_mode") = "pandas" \
     );
 
 PYBIND11_MODULE(rollingrank, m) {
