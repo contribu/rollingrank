@@ -68,6 +68,7 @@ class avl_array
   size_type   size_;                      // actual size
   size_type   root_;                      // root node
   size_type   parent_[Fast ? Size : 1];   // node parent, use one element if not needed (zero sized array is not allowed)
+  size_type   subtree_size_[Size];
 
   // invalid index (like 'nullptr' in a pointer implementation)
   static const size_type INVALID_IDX = Size;
@@ -172,7 +173,6 @@ public:
     , root_(Size)
   { }
 
-
   // iterators
   inline iterator begin()
   {
@@ -222,6 +222,7 @@ public:
       val_[size_]     = val;
       balance_[size_] = 0;
       child_[size_]   = { INVALID_IDX, INVALID_IDX };
+      update_subtree_size(size_);
       set_parent(size_, INVALID_IDX);
       root_ = size_++;
       return true;
@@ -238,8 +239,10 @@ public:
           val_[size_]     = val;
           balance_[size_] = 0;
           child_[size_]   = { INVALID_IDX, INVALID_IDX };
+          update_subtree_size(size_);
           set_parent(size_, i);
           child_[i].left  = size_++;
+          update_subtree_size(i);
           insert_balance(i, 1);
           return true;
         }
@@ -259,8 +262,10 @@ public:
           val_[size_]     = val;
           balance_[size_] = 0;
           child_[size_]   = { INVALID_IDX, INVALID_IDX };
+          update_subtree_size(size_);
           set_parent(size_, i);
           child_[i].right = size_++;
+          update_subtree_size(i);
           insert_balance(i, -1);
           return true;
         }
@@ -296,6 +301,27 @@ public:
     return false;
   }
 
+  inline size_type lower_bound_rank(const key_type& key) const
+  {
+    size_type rank = 0;
+
+    for (size_type i = root_; i != INVALID_IDX;) {
+      const auto left = child_[i].left;
+
+      if (key < key_[i]) {
+        i = left;
+      }
+      else if (key == key_[i]) {
+        return rank + (left == INVALID_IDX ? 0 : subtree_size_[left]);
+      }
+      else {
+        rank += (left == INVALID_IDX ? 0 : subtree_size_[left]) + 1;
+        i = child_[i].right;
+      }
+    }
+
+    return rank;
+  }
 
   /**
    * Find an element and return an iterator as result
@@ -366,10 +392,12 @@ public:
         if (parent != INVALID_IDX) {
           if (child_[parent].left == node) {
             child_[parent].left = INVALID_IDX;
+            update_subtree_size(parent);
             delete_balance(parent, -1);
           }
           else {
             child_[parent].right = INVALID_IDX;
+            update_subtree_size(parent);
             delete_balance(parent, 1);
           }
         }
@@ -405,6 +433,7 @@ public:
       if (child_[successor].left == INVALID_IDX) {
         const size_type parent = get_parent(node);
         child_[successor].left = left;
+        update_subtree_size(successor);
         balance_[successor] = balance_[node];
         set_parent(successor, parent);
         set_parent(left, successor);
@@ -415,9 +444,11 @@ public:
         else {
           if (child_[parent].left == node) {
             child_[parent].left = successor;
+            update_subtree_size(parent);
           }
           else {
             child_[parent].right = successor;
+            update_subtree_size(parent);
           }
         }
         delete_balance(successor, 1);
@@ -433,9 +464,11 @@ public:
 
         if (child_[successor_parent].left == successor) {
           child_[successor_parent].left = successor_right;
+          update_subtree_size(successor_parent);
         }
         else {
           child_[successor_parent].right = successor_right;
+          update_subtree_size(successor_parent);
         }
 
         set_parent(successor_right, successor_parent);
@@ -444,6 +477,7 @@ public:
         set_parent(left, successor);
         child_[successor].left  = left;
         child_[successor].right = right;
+        update_subtree_size(successor);
         balance_[successor]     = balance_[node];
 
         if (node == root_) {
@@ -452,9 +486,11 @@ public:
         else {
           if (child_[parent].left == node) {
             child_[parent].left = successor;
+            update_subtree_size(parent);
           }
           else {
             child_[parent].right = successor;
+            update_subtree_size(parent);
           }
         }
         delete_balance(successor_parent, -1);
@@ -482,6 +518,7 @@ public:
       val_[node]     = val_[size_];
       balance_[node] = balance_[size_];
       child_[node]   = child_[size_];
+      update_subtree_size(node);
       set_parent(node, parent);
     }
 
@@ -565,6 +602,19 @@ private:
     }
   }
 
+  // update subtree_size_. call after child_ update
+  inline void update_subtree_size(size_type node)
+  {
+    subtree_size_[node] = 1;
+    const auto left = child_[node].left;
+    const auto right = child_[node].right;
+    if (left != INVALID_IDX) {
+      subtree_size_[node] += subtree_size_[left];
+    }
+    if (right != INVALID_IDX) {
+      subtree_size_[node] += subtree_size_[right];
+    }
+  }
 
   void insert_balance(size_type node, std::int8_t balance)
   {
@@ -654,16 +704,20 @@ private:
     set_parent(node, right);
     set_parent(right_left, node);
     child_[right].left = node;
+    update_subtree_size(right);
     child_[node].right = right_left;
+    update_subtree_size(node);
 
     if (node == root_) {
       root_ = right;
     }
     else if (child_[parent].right == node) {
       child_[parent].right = right;
+      update_subtree_size(parent);
     }
     else {
       child_[parent].left = right;
+      update_subtree_size(parent);
     }
 
     balance_[right]++;
@@ -683,16 +737,20 @@ private:
     set_parent(node, left);
     set_parent(left_right, node);
     child_[left].right = node;
+    update_subtree_size(left);
     child_[node].left  = left_right;
+    update_subtree_size(node);
 
     if (node == root_) {
       root_ = left;
     }
     else if (child_[parent].left == node) {
       child_[parent].left = left;
+      update_subtree_size(parent);
     }
     else {
       child_[parent].right = left;
+      update_subtree_size(parent);
     }
 
     balance_[left]--;
@@ -716,18 +774,23 @@ private:
     set_parent(left_right_right, node);
     set_parent(left_right_left, left);
     child_[node].left        = left_right_right;
+    update_subtree_size(node);
     child_[left].right       = left_right_left;
+    update_subtree_size(left);
     child_[left_right].left  = left;
     child_[left_right].right = node;
+    update_subtree_size(left_right);
 
     if (node == root_) {
       root_ = left_right;
     }
     else if (child_[parent].left == node) {
       child_[parent].left = left_right;
+      update_subtree_size(parent);
     }
     else {
       child_[parent].right = left_right;
+      update_subtree_size(parent);
     }
 
     if (balance_[left_right] == 0) {
@@ -762,18 +825,23 @@ private:
     set_parent(right_left_left, node);
     set_parent(right_left_right, right);
     child_[node].right       = right_left_left;
+    update_subtree_size(node);
     child_[right].left       = right_left_right;
+    update_subtree_size(right);
     child_[right_left].right = right;
     child_[right_left].left  = node;
+    update_subtree_size(right_left);
 
     if (node == root_) {
       root_ = right_left;
     }
     else if (child_[parent].right == node) {
       child_[parent].right = right_left;
+      update_subtree_size(parent);
     }
     else {
       child_[parent].left = right_left;
+      update_subtree_size(parent);
     }
 
     if (balance_[right_left] == 0) {
