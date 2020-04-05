@@ -97,7 +97,6 @@ class TestRollingrank(TestCase):
 
         np.random.seed(1)
         x = np.random.randint(0, 10, (16 * 1024))
-        x = np.random.rand(16 * 1024)
         window = 16
         y = rollingrank.rollingrank(x, window=window, method='first')
         y_pandas = rollingrank_pandas(x, window=window, method='first')
