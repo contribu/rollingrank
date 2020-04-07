@@ -64,6 +64,14 @@ test
 python -m unittest discover tests
 ```
 
+build/upload
+
+```bash
+python setup.py sdist
+twine upload --repository pypitest dist/*
+twine upload --repository pypi dist/*
+```
+
 ## TODO
 
 - support axis
