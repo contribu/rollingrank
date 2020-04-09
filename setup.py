@@ -14,7 +14,7 @@ class get_pybind_include(object):
 setup(
     ext_modules=[
         Extension(
-            'rollingrank',
+            'rollingrank_native',
             ['src/rollingrank.cpp'],
             extra_compile_args=['-std=c++11'],
             include_dirs = [

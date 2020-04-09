@@ -1,5 +1,6 @@
 from unittest import TestCase
 import numpy as np
+import pandas as pd
 import rollingrank
 
 class TestRollingrank(TestCase):
@@ -88,4 +89,12 @@ class TestRollingrank(TestCase):
         y = rollingrank.rollingrank(x, window=3)
         np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 1.5, 1, 2.5, 3])
 
+    def test_list_input(self):
+        x = [0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3]
+        y = rollingrank.rollingrank(x, window=3)
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 1.5, 1, 2.5, 3])
 
+    def test_pandas_series_input(self):
+        x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
+        y = rollingrank.rollingrank(pd.Series(x), window=3)
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 1.5, 1, 2.5, 3])

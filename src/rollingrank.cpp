@@ -146,7 +146,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
         py::arg("pct_mode") = "pandas" \
     );
 
-PYBIND11_MODULE(rollingrank, m) {
+PYBIND11_MODULE(rollingrank_native, m) {
     m.doc() = "rolling rank for numpy array";
 
     def_rollingrank(int8_t)
