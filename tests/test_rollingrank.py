@@ -2,6 +2,7 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 import rollingrank
+import random
 
 class TestRollingrank(TestCase):
     def test_normal_case(self):
@@ -104,3 +105,12 @@ class TestRollingrank(TestCase):
         y = rollingrank.rollingrank(x, window=3, n_jobs=1)
         y_parallel = rollingrank.rollingrank(x, window=3)
         np.testing.assert_array_equal(y_parallel, y)
+
+    def test_random_test(self):
+        for i in range(100):
+            n = random.randint(1, 2 ** 20)
+            w = random.randint(1, 2 ** 10)
+            x = np.random.rand(n)
+            y = rollingrank.rollingrank(x, window=w, n_jobs=1)
+            y_parallel = rollingrank.rollingrank(x, window=w)
+            np.testing.assert_array_equal(y_parallel, y)
