@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 from setuptools import setup, Extension
 
 class get_pybind_include(object):
@@ -16,10 +17,14 @@ setup(
         Extension(
             'rollingrank_native',
             ['src/rollingrank.cpp'],
-            extra_compile_args=['-std=c++11'],
+            extra_compile_args=[
+                '-std=c++14',
+                '-pthread',
+            ],
             include_dirs = [
                 get_pybind_include(),
-                get_pybind_include(user=True)
+                get_pybind_include(user=True),
+                os.path.dirname(os.path.abspath(__file__)) + '/deps/cpp-taskflow'
             ]
         )
     ],

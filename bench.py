@@ -16,6 +16,10 @@ def bench():
     rollingrank.rollingrank(x, window=window)
 
 @measure
+def bench_single():
+    rollingrank.rollingrank(x, window=window, n_jobs=1)
+
+@measure
 def bench_float():
     rollingrank.rollingrank(x.astype('float32'), window=window)
 
@@ -49,6 +53,7 @@ def bench_pandas2():
     rollingrank_pandas2(x_small, window=window_small)
 
 bench()
+bench_single()
 bench_float()
 bench_nan()
 bench_pct()

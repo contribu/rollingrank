@@ -98,3 +98,9 @@ class TestRollingrank(TestCase):
         x = np.array([0.1, 0.2, 0.3, 0.2, 0.1, 0.2, 0.3])
         y = rollingrank.rollingrank(pd.Series(x), window=3)
         np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 1.5, 1, 2.5, 3])
+
+    def test_parallel(self):
+        x = np.random.rand(2 ** 20)
+        y = rollingrank.rollingrank(x, window=3, n_jobs=1)
+        y_parallel = rollingrank.rollingrank(x, window=3)
+        np.testing.assert_array_equal(y_parallel, y)
