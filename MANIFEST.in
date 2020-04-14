@@ -1,0 +1,2 @@
+recursive-include deps/cpp-taskflow/taskflow *
+include deps/cpp-taskflow/LICENSE
