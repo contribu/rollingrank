@@ -62,7 +62,7 @@ void rollingrank_task(const py::array_t<T> &x, py::array_t<double> *y, int w, Ra
     std::multiset<T> sorted_indices;
     int nan_count = 0;
 
-    for (int i = std::max<int>(0, start - w); i < end; i++) {
+    for (int i = std::max<int>(0, start - w + 1); i < end; i++) {
         const auto value = *x.data(i);
         typename std::multiset<T>::iterator iter;
 
@@ -145,7 +145,11 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
     const auto split_size = std::max<int>(w, 10000);
     const auto groups = (n + split_size - 1) / split_size;
 
-    if (groups < 2) {
+    if (n_jobs < 0) {
+        n_jobs = std::thread::hardware_concurrency();
+    }
+
+    if (groups < 2 || n_jobs == 1) {
         rollingrank_task<T>(x, &y, w, rank_method, pct, pct_mode, 0, n);
     }
     else {
@@ -161,7 +165,7 @@ py::array_t<double> rollingrank(py::array_t<T> x, int w, const char *method, boo
             });
         }
 
-        tf::Executor executor(n_jobs < 0 ? std::thread::hardware_concurrency() : n_jobs);
+        tf::Executor executor(n_jobs);
         executor.run(taskflow);
         executor.wait_for_all();
     }
