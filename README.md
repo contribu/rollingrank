@@ -24,7 +24,7 @@ The simple implementation using pandas and numpy is too slow.
 
 |Implementation|Complexity|
 |:-:|:-:|
-|rollingrank|O(n * log(w)) (not implemented)|
+|rollingrank|O(n * log(w))|
 |pandas rolling + numpy|O(n * w)|
 
 n: input length
@@ -75,4 +75,3 @@ twine upload --repository pypi dist/*
 ## TODO
 
 - support axis
-- O(n * log(w)) algorithm

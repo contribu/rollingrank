@@ -24,7 +24,8 @@ setup(
             include_dirs = [
                 get_pybind_include(),
                 get_pybind_include(user=True),
-                os.path.dirname(os.path.abspath(__file__)) + '/deps/cpp-taskflow'
+                os.path.dirname(os.path.abspath(__file__)) + '/deps/cpp-taskflow',
+                os.path.dirname(os.path.abspath(__file__)) + '/deps/rank_in_range/include'
             ]
         )
     ],
