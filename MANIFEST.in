@@ -1,2 +1,3 @@
 recursive-include deps/cpp-taskflow/taskflow *
 include deps/cpp-taskflow/LICENSE
+recursive-include deps/rank_in_range/include *
