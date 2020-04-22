@@ -58,14 +58,14 @@ PctMode str_to_pct_mode(const char *str) {
 template <class T>
 class NumpyIterator {
 public:
-    NumpyIterator(const py::array_t<T> *x, int base = 0): x_(x), base_(base) {}
+    NumpyIterator(const pybind11::detail::unchecked_reference<T, 1> *x, int base = 0): x_(x), base_(base) {}
 
     const T &operator [](int i) const {
-        return *x_->data(base_ + i);
+        return (*x_)(base_ + i);
     }
 
     const T &operator *() const {
-        return *x_->data(base_);
+        return (*x_)(base_);
     }
 
     NumpyIterator<T> operator +(int x) const {
@@ -81,8 +81,7 @@ public:
         return base_ != other.base_ || x_ != other.x_;
     }
 private:
-
-    const py::array_t<T> *x_;
+    const pybind11::detail::unchecked_reference<T, 1> *x_;
     int base_;
 };
 
@@ -91,7 +90,8 @@ private:
 
 template <class T>
 void rollingrank_task(const py::array_t<T> &x, py::array_t<double> *y, int w, RankMethod rank_method, bool pct, PctMode pct_mode, int start, int end) {
-    NumpyIterator<T> x_iter(&x);
+    auto unchecked_x = x.template unchecked<1>();
+    NumpyIterator<T> x_iter(&unchecked_x);
     rank_in_range::Ranker<T, NumpyIterator<T>> ranker(x_iter);
 
     for (int i = start; i < end; i++) {
@@ -99,14 +99,14 @@ void rollingrank_task(const py::array_t<T> &x, py::array_t<double> *y, int w, Ra
         typename std::multiset<T>::iterator iter;
 
         if (i % w == 0) {
-            ranker.remove_cache_before(i - w);
+            ranker.remove_cache_before(i - w + 1);
         }
 
-        if (i - w < 0 || std::isnan(value)) {
+        if (i - w + 1 < 0 || std::isnan(value)) {
             *y->mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         }
         else {
-            const auto result = ranker.rank_in_range(value, i - w, i);
+            const auto result = ranker.rank_in_range(value, i - w + 1, i + 1);
 
             double rank;
             switch (rank_method) {
@@ -120,7 +120,7 @@ void rollingrank_task(const py::array_t<T> &x, py::array_t<double> *y, int w, Ra
                     rank = result.rank_ed;
                     break;
                 case RankMethod::First:
-                    rank = result.rank_bg + 1;
+                    rank = result.rank_ed;
                     break;
             }
 
