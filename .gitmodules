@@ -1,3 +1,6 @@
 [submodule "deps/cpp-taskflow"]
 	path = deps/cpp-taskflow
 	url = https://github.com/cpp-taskflow/cpp-taskflow.git
+[submodule "deps/rank_in_range"]
+	path = deps/rank_in_range
+	url = https://github.com/contribu/rank_in_range.git

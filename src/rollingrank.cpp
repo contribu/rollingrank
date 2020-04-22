@@ -9,6 +9,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <taskflow/taskflow.hpp>
+#include <rank_in_range/rank_in_range.h>
 
 //#include <iostream>
 
@@ -54,82 +55,91 @@ PctMode str_to_pct_mode(const char *str) {
     }
 }
 
+template <class T>
+class NumpyIterator {
+public:
+    NumpyIterator(const pybind11::detail::unchecked_reference<T, 1> *x, int base = 0): x_(x), base_(base) {}
+
+    const T &operator [](int i) const {
+        return (*x_)(base_ + i);
+    }
+
+    const T &operator *() const {
+        return (*x_)(base_);
+    }
+
+    NumpyIterator<T> operator +(int x) const {
+        return NumpyIterator<T>(x_, base_ + x);
+    }
+
+    NumpyIterator<T> &operator ++() {
+        base_++;
+        return *this;
+    }
+
+    bool operator !=(const NumpyIterator<T> &other) const {
+        return base_ != other.base_ || x_ != other.x_;
+    }
+private:
+    const pybind11::detail::unchecked_reference<T, 1> *x_;
+    int base_;
+};
+
 // the definition of method and pct are same as https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.rank.html
 // na_option is 'keep'
 
 template <class T>
 void rollingrank_task(const py::array_t<T> &x, py::array_t<double> *y, int w, RankMethod rank_method, bool pct, PctMode pct_mode, int start, int end) {
-    std::multiset<T> sorted_indices;
-    int nan_count = 0;
+    auto unchecked_x = x.template unchecked<1>();
+    NumpyIterator<T> x_iter(&unchecked_x);
+    rank_in_range::Ranker<T, NumpyIterator<T>> ranker(x_iter);
 
-    for (int i = std::max<int>(0, start - w + 1); i < end; i++) {
+    for (int i = start; i < end; i++) {
         const auto value = *x.data(i);
         typename std::multiset<T>::iterator iter;
 
-        if (std::isnan(value)) {
-            nan_count++;
+        if (i % w == 0) {
+            ranker.remove_cache_before(i - w + 1);
+        }
+
+        if (i - w + 1 < 0 || std::isnan(value)) {
+            *y->mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
         }
         else {
-            iter = sorted_indices.insert(value);
-        }
+            const auto result = ranker.rank_in_range(value, i - w + 1, i + 1);
 
-        if (start <= i) {
-            if (nan_count + sorted_indices.size() < w) {
-                *y->mutable_data(i) = std::numeric_limits<double>::quiet_NaN();
+            double rank;
+            switch (rank_method) {
+                case RankMethod::Average:
+                    rank = 0.5 * (result.rank_bg + result.rank_ed - 1) + 1;
+                    break;
+                case RankMethod::Min:
+                    rank = result.rank_bg + 1;
+                    break;
+                case RankMethod::Max:
+                    rank = result.rank_ed;
+                    break;
+                case RankMethod::First:
+                    rank = result.rank_ed;
+                    break;
             }
-            else {
-                double rank;
 
-                if (std::isnan(value)) {
-                    rank = std::numeric_limits<double>::quiet_NaN();
-                }
-                else {
-                    switch (rank_method) {
-                        case RankMethod::Average:
-                            {
-                                const auto range = sorted_indices.equal_range(value);
-                                rank = std::distance(sorted_indices.begin(), range.first) + 0.5 * (std::distance(range.first, range.second) - 1) + 1;
-                            }
-                            break;
-                        case RankMethod::Min:
-                            rank = std::distance(sorted_indices.begin(), sorted_indices.lower_bound(value)) + 1;
-                            break;
-                        case RankMethod::Max:
-                            rank = std::distance(sorted_indices.begin(), sorted_indices.upper_bound(value));
-                            break;
-                        case RankMethod::First:
-                            rank = std::distance(sorted_indices.begin(), iter) + 1;
-                            break;
-                        default:
-                            rank = std::numeric_limits<double>::quiet_NaN();
-                            break;
-                    }
-
-                    if (pct) {
-                        switch (pct_mode) {
-                            case PctMode::Pandas:
-                                rank /= sorted_indices.size();
-                                break;
-                            case PctMode::Closed:
-                                if (sorted_indices.size() == 1) {
-                                    rank = 0.5;
-                                } else {
-                                    rank = (rank - 1) / (sorted_indices.size() - 1);
-                                }
+            if (pct) {
+                const int c = w - result.nan_count;
+                switch (pct_mode) {
+                    case PctMode::Pandas:
+                        rank /= c;
+                        break;
+                    case PctMode::Closed:
+                        if (c == 1) {
+                            rank = 0.5;
+                        } else {
+                            rank = (rank - 1) / (c - 1);
                         }
-                    }
-                }
-
-                *y->mutable_data(i) = rank;
-
-                const auto old_value = *x.data(i - w + 1);
-                if (std::isnan(old_value)) {
-                    nan_count--;
-                }
-                else {
-                    sorted_indices.erase(sorted_indices.find(old_value));
                 }
             }
+
+            *y->mutable_data(i) = rank;
         }
     }
 }
