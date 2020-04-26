@@ -10,6 +10,11 @@ class TestRollingrank(TestCase):
         y = rollingrank.rollingrank(x, window=3)
         np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 2, 1, 2, 3])
 
+    def test_float16(self):
+        x = np.array([-1, 0, 1, 3, 2]).astype(np.float16)
+        y = rollingrank.rollingrank(x, window=3)
+        np.testing.assert_array_equal(y, [np.nan, np.nan, 3, 3, 2])
+
     def test_method_default(self):
         x = np.array([0.1, 0.1])
         y = rollingrank.rollingrank(x, window=2)
