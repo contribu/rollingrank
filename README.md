@@ -52,6 +52,12 @@ print(y)
 # [nan nan 1.  0.5 0.  0.5 1. ]
 ```
 
+## rci
+
+RCI is also implemented because fast implementation is not found.
+
+https://docs.anychart.com/Stock_Charts/Technical_Indicators/Mathematical_Description#rank_correlation_index
+
 ## Kaggle Example
 
 https://www.kaggle.com/bakuage/rollingrank-example
