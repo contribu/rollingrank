@@ -201,8 +201,6 @@ void sorted_erase(std::vector<T> *sorted, T value, const Compare &compare) {
 
 template <class T>
 void rci_task(const py::array_t<T> &x, py::array_t<double> *y, int w, int start, int end) {
-    auto unchecked_x = x.template unchecked<1>();
-    NumpyIterator<T> x_iter(&unchecked_x);
     std::vector<int> sorted;
     std::vector<int> ranks(w);
     int nan_count = 0;
@@ -222,7 +220,6 @@ void rci_task(const py::array_t<T> &x, py::array_t<double> *y, int w, int start,
 
     for (int i = start; i < end; i++) {
         const auto value = *x.data(i);
-        typename std::multiset<T>::iterator iter;
 
         if (std::isnan(value)) {
             nan_count++;
@@ -268,12 +265,13 @@ void rci_task(const py::array_t<T> &x, py::array_t<double> *y, int w, int start,
             *y->mutable_data(i) = cov / (1e-37 + std::sqrt(var_t * var_rank));
         }
 
-        if (i - w + 1 >= 0) {
-            const auto old_value = *x.data(i - w + 1);
-            if (std::isnan(*x.data(old_value))) {
+        const auto old_i = i - w + 1;
+        if (old_i >= 0) {
+            const auto old_value = *x.data(old_i);
+            if (std::isnan(old_value)) {
                 nan_count--;
             } else {
-                sorted_erase(&sorted, i - w + 1, compare_func);
+                sorted_erase(&sorted, old_i, compare_func);
             }
         }
     }
